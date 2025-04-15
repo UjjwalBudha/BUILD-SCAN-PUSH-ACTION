@@ -59,7 +59,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Build, scan and push
-        uses: ujwalbudha/build-scan-push-action@main
+        uses: UjjwalBudha/BUILD-SCAN-PUSH-ACTION@v1
         with:
           context: .
           push: true
