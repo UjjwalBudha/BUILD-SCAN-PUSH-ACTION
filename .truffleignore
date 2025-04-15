@@ -7,3 +7,7 @@
 node_modules/
 site-packages/
 venv/
+/app/.git/**
+/root/.npm/_cacache/**
+/opt/yarn-v*/**
+image-metadata:*
