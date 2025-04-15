@@ -1,0 +1,9 @@
+/opt/helm/helm-charts/**
+/usr/lib/**
+/usr/share/**
+/var/lib/apt/**
+/var/lib/dpkg/**
+
+node_modules/
+site-packages/
+venv/
