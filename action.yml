@@ -1,6 +1,9 @@
 name: Build, Scan and push Docker images
 description: Thin wrapper around docker/build-push-action to scan docker images using TruffleHog and Trivy
 author: ujwalbudha
+branding:
+  icon: shield
+  color: blue
 
 inputs:
   build-args:
