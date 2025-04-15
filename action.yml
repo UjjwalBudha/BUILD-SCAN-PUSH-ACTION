@@ -1,5 +1,5 @@
 name: Build, Scan and push Docker images
-description: Thin wrapper around docker/build-push-action to scan docker images using TruffleHog and Trivy
+description: Thin wrapper around docker/build-push-action to scan docker images using Trivy
 author: ujwalbudha
 branding:
   icon: shield
@@ -54,7 +54,7 @@ inputs:
   target:
     description: "Set the target build stage to build"
     required: false
-  # New Trivy configuration inputs
+  # Trivy configuration inputs
   trivy-enabled:
     description: "Enable scanning with Trivy vulnerability scanner"
     required: false
@@ -109,23 +109,12 @@ runs:
         target: ${{ inputs.target }}
         outputs: type=docker,dest=${{ runner.temp }}/local-docker-image.tar
 
-    - name: Setup python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.x"
-
-    - name: Install python requirements
-      shell: bash
-      run: pip install -r $GITHUB_ACTION_PATH/requirements.txt
-
     - name: Get github actions runner architecture
       shell: bash
       run: |
         if [[ "${{ runner.arch }}" == "X64" ]]; then
-          echo "TRUFFLEHOG_ARCH=amd64" >> $GITHUB_ENV
           echo "ARCH=amd64" >> $GITHUB_ENV
         elif [[ "${{ runner.arch }}" == "ARM64" ]]; then
-          echo "TRUFFLEHOG_ARCH=arm64" >> $GITHUB_ENV
           echo "ARCH=arm64" >> $GITHUB_ENV
         else
           echo "Unsupported architecture: ${{ runner.arch }}"
@@ -138,26 +127,6 @@ runs:
       run: |
         DOCKER_IMAGE_ID=$(docker load --input ${{ runner.temp }}/local-docker-image.tar | awk '{print $3}')
         echo "DOCKER_IMAGE_ID=${DOCKER_IMAGE_ID}" >> $GITHUB_ENV
-
-    - name: Install TruffleHog
-      shell: bash
-      run: |
-        TRUFFLEHOG_VERSION="3.88.5"
-        echo "Installing TruffleHog version $TRUFFLEHOG_VERSION"
-        curl -sL "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_linux_${TRUFFLEHOG_ARCH}.tar.gz" -o trufflehog.tar.gz
-        tar -xzf trufflehog.tar.gz
-        chmod +x trufflehog
-
-        sudo mv trufflehog /usr/local/bin/
-
-        # Cleanup
-        rm trufflehog.tar.gz
-
-    - name: Scan docker image with TruffleHog
-      id: scan-docker-image-trufflehog
-      shell: bash
-      run: |
-        python $GITHUB_ACTION_PATH/docker-image-scanner.py --image ${{ runner.temp }}/local-docker-image.tar
 
     # Install and run Trivy scanner
     - name: Install Trivy scanner
@@ -223,3 +192,8 @@ runs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "| Scanner | Status |" >> $GITHUB_STEP_SUMMARY
         echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ inputs.trivy-enabled }}" == "true" ]; then
+          echo "| Trivy | ✅ Completed | " >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| Trivy | ⚠️ Disabled | " >> $GITHUB_STEP_SUMMARY
+        fi

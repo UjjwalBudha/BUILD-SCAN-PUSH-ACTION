@@ -3,118 +3,104 @@ import json
 import os
 import sys
 import subprocess
-import pathspec
-
 from typing import List, Dict
 
-
-def format_image_path(image_path: str) -> str:
-    """Format the image path to use file:/// prefix with absolute path."""
-    abs_path = os.path.abspath(image_path)
-    return f"file://{abs_path}"
-
-
-def scan_docker_image(image_path: str) -> List[Dict]:
-    """Scan Docker image using trufflehog and return JSON results."""
+def scan_docker_image_with_trivy(image_id: str, severity: str = "HIGH,CRITICAL", exit_code: int = 1) -> int:
+    """
+    Scan Docker image using Trivy and return exit code.
+    
+    Args:
+        image_id: Docker image ID or name to scan
+        severity: Comma-separated list of severities to scan for
+        exit_code: Exit code to return when vulnerabilities are found
+        
+    Returns:
+        Exit code indicating success (0) or vulnerabilities found (exit_code)
+    """
     try:
-        formatted_path = format_image_path(image_path)
         cmd = [
-            "trufflehog",
-            "docker",
-            "--image",
-            formatted_path,
-            "--json",
-            "--no-update",
-            "--no-verification",
+            "trivy", 
+            "image",
+            "--exit-code", 
+            str(exit_code),
+            "--severity", 
+            severity,
+            image_id
         ]
+        
         result = subprocess.run(cmd, capture_output=True, text=True)
-
-        if result.returncode != 0:
-            print(f"Error running trufflehog: {result.stderr}", file=sys.stderr)
-            sys.exit(1)
-
-        # Process output line by line as each line is a JSON object
-        findings = []
-        for line in result.stdout.splitlines():
-            if line.strip():
-                try:
-                    findings.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
-
-        return findings
+        
+        # Print Trivy output
+        if result.stdout:
+            print(result.stdout)
+        
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
+        
+        return result.returncode
     except subprocess.CalledProcessError as e:
-        print(f"Error executing trufflehog: {e}", file=sys.stderr)
-        sys.exit(1)
-
-
-def filter_results(findings: List[Dict], ignorepaths: str) -> List[Dict]:
-    """Filter findings based on gitignore patterns."""
-    try:
-        with open(ignorepaths, "r") as fh:
-            spec = pathspec.PathSpec.from_lines("gitwildmatch", fh)
-    except FileNotFoundError:
-        print(
-            f"file {ignorepaths} not found in repository. Not filtering any findings."
-        )
-        return findings
-
-    filtered_findings = []
-
-    for finding in findings:
-        file_path = str(finding["SourceMetadata"]["Data"]["Docker"]["file"])
-        if spec.match_file(file_path):
-            continue
-
-        filtered_findings.append(finding)
-
-    return filtered_findings
-
+        print(f"Error executing Trivy: {e}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
+        return 1
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Scan Docker images using Trivy")
     parser.add_argument(
         "--image",
         required=True,
-        help="local tarball of your docker image",
+        help="Docker image ID or path to scan"
     )
     parser.add_argument(
-        "--ignorepaths",
-        required=False,
-        help="file with paths to ignore (in gitignore pattern format)",
-        default=".truffleignore",
+        "--severity",
+        default="HIGH,CRITICAL",
+        help="Comma-separated list of vulnerability severities to scan for"
     )
+    parser.add_argument(
+        "--exit-code",
+        type=int,
+        default=1,
+        help="Exit code when vulnerabilities are found"
+    )
+    
     args = parser.parse_args()
-
-    findings = scan_docker_image(args.image)
-
-    # Filter results if patterns provided
-    if args.ignorepaths:
-        findings = filter_results(findings, args.ignorepaths)
-
-    # Output results
-    if findings:
-        for finding in findings:
-            file = (
-                finding.get("SourceMetadata", {})
-                .get("Data", {})
-                .get("Docker", {})
-                .get("file", "")
+    
+    # For image path, load it and get the image ID
+    if args.image.startswith("/") or args.image.startswith("./"):
+        # Looks like a file path
+        try:
+            result = subprocess.run(
+                ["docker", "load", "--input", args.image],
+                capture_output=True, 
+                text=True, 
+                check=True
             )
-            layer = (
-                finding.get("SourceMetadata", {})
-                .get("Data", {})
-                .get("Docker", {})
-                .get("layer", "")
-            )
-            redacted_secret = finding["Redacted"]
-            print(
-                f"Found unverified secret {redacted_secret} in file={file} layer={layer}"
-            )
-        sys.exit(1)
+            # Extract image ID
+            for line in result.stdout.splitlines():
+                if "Loaded image ID: " in line:
+                    image_id = line.replace("Loaded image ID: ", "").strip()
+                    break
+                elif "Loaded image: " in line:
+                    image_id = line.replace("Loaded image: ", "").strip()
+                    break
+            else:
+                print(f"Failed to extract image ID from docker load output", file=sys.stderr)
+                sys.exit(1)
+        except subprocess.CalledProcessError as e:
+            print(f"Error loading Docker image: {e}", file=sys.stderr)
+            sys.exit(1)
     else:
-        sys.exit(0)
+        # Use the image ID/name directly
+        image_id = args.image
 
+    exit_code = scan_docker_image_with_trivy(
+        image_id=image_id,
+        severity=args.severity,
+        exit_code=args.exit_code
+    )
+    
+    sys.exit(exit_code)
 
 if __name__ == "__main__":
     main()
