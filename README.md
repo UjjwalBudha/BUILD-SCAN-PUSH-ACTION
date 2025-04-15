@@ -1,23 +1,20 @@
 # Build, Scan, and Push Docker Images Action
 
-A GitHub Action that builds Docker images, performs security scans using TruffleHog and Trivy, and optionally pushes them to a container registry.
+A GitHub Action that builds Docker images, performs security scans using Trivy, and optionally pushes them to a container registry.
 
 ## Overview
 
 This action is a thin wrapper around [docker/build-push-action](https://github.com/docker/build-push-action) that adds security scanning capabilities. It provides a seamless workflow for:
 
 1. Building Docker images
-2. Scanning for secrets using TruffleHog
-3. Scanning for vulnerabilities using Trivy
-4. Pushing images to a container registry
-5. Signing images using Cosign and GitHub OIDC tokens
+2. Scanning for vulnerabilities using Trivy
+3. Pushing images to a container registry
+4. Signing images using Cosign and GitHub OIDC tokens
 
 ## Features
 
 - 🔒 **Security Scanning**
-  - TruffleHog scanning to detect secrets
   - Trivy vulnerability scanning with configurable severity levels
-  - Support for ignoring specific paths with `.truffleignore`
 
 - 🔄 **Full Build Pipeline**
   - All capabilities of docker/build-push-action
@@ -121,10 +118,6 @@ jobs:
 | `metadata` | Build result metadata |
 
 ## Security Features
-
-### TruffleHog Secret Scanning
-
-This action automatically scans your Docker image for secrets using TruffleHog. You can customize which paths to ignore by creating a `.truffleignore` file in your repository.
 
 ### Trivy Vulnerability Scanning
 
