@@ -169,7 +169,7 @@ runs:
 
     - name: Install Cosign
       if: inputs.push == 'true' && success()
-      uses: sigstore/cosign-installer@v3.8.1
+      uses: sigstore/cosign-installer@v3.8.2
 
     - name: Sign the images with GitHub OIDC Token
       if: inputs.push == 'true' && success()
