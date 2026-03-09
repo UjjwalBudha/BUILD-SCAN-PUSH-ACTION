@@ -93,7 +93,7 @@ runs:
         fi
 
     - name: Build image
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         context: ${{ inputs.context }}
         file: ${{ inputs.file }}
@@ -150,7 +150,7 @@ runs:
     - name: Build and push
       id: build-and-push
       if: success()
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         context: ${{ inputs.context }}
         file: ${{ inputs.file }}
